@@ -40,22 +40,17 @@ class Moondream(PreTrainedModel):
 
         text_emb = self.text_model.get_input_embeddings()
 
-        # Add BOS token
-        embeds = []
-        embeds.append(
-            text_emb((torch.tensor([[tokenizer.bos_token_id]], device=self.device)))
-        )
+        embeds = [text_emb(torch.tensor([[tokenizer.bos_token_id]], device=self.device))]
 
-        if "<image>" not in prompt:
-            embeds.append(text_emb(_tokenize(prompt)))
-        else:
-            assert prompt.count("<image>") == 1
-            before, after = prompt.split("<image>")
-            if len(before) > 0:
+        if "<image>" in prompt:
+            before, after = prompt.split("<image>", 1)
+            if before:
                 embeds.append(text_emb(_tokenize(before)))
             embeds.append(image_embeds.to(self.device))
-            if len(after) > 0:
+            if after:
                 embeds.append(text_emb(_tokenize(after)))
+        else:
+            embeds.append(text_emb(_tokenize(prompt)))
 
         return torch.cat(embeds, dim=1)
 
@@ -105,7 +100,6 @@ class Moondream(PreTrainedModel):
         )[0]
         cleaned_answer = answer.strip()
 
-        # Use the result_queue to pass the result if it is provided
         if result_queue:
             result_queue.put(cleaned_answer)
         else:
@@ -176,3 +170,4 @@ class Moondream(PreTrainedModel):
             x.strip()
             for x in tokenizer.batch_decode(output_ids, skip_special_tokens=True)
         ]
+
